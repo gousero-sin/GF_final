@@ -14,24 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "GoFinance - Neo Finance Dashboard",
+  description:
+    "Aplicação GoFinance para controle financeiro com linguagem natural e visual neo-futurista.",
+  keywords: ["GoFinance", "finanças pessoais", "Next.js", "TypeScript", "Tailwind CSS"],
+  authors: [{ name: "GoFinance" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.png",       // pega de public/logo.png
+    shortcut: "/logo.png",
+    apple: "/logo.png",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "GoFinance - Neo Finance Dashboard",
+    description:
+      "Controle suas finanças com interface minimalista e input em linguagem natural.",
+    url: "https://gofinance-final-f3ac3ez64-gousero-sins-projects.vercel.app",
+    siteName: "GoFinance",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "GoFinance - Neo Finance Dashboard",
+    description:
+      "Controle financeiro com visual neo-chinese e processamento de linguagem natural.",
   },
 };
 
@@ -41,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
