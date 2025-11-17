@@ -99,7 +99,6 @@ export default function TransactionList({ transactions, onChange }: TransactionL
       return;
     }
 
-    // opcional: permitir trocar tipo
     const newType = window.prompt(
       "Tipo ('receita' ou 'despesa'):",
       transaction.type
@@ -139,12 +138,14 @@ export default function TransactionList({ transactions, onChange }: TransactionL
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-          <Tag className="w-8 h-8 text-muted-foreground" />
+      <div className="text-center py-10 sm:py-12">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+          <Tag className="w-7 h-7 sm:w-8 sm:h-8 text-muted-foreground" />
         </div>
-        <p className="text-muted-foreground">Nenhuma transação registrada ainda</p>
-        <p className="text-sm text-muted-foreground mt-2">
+        <p className="text-sm sm:text-base text-muted-foreground">
+          Nenhuma transação registrada ainda
+        </p>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-2">
           Adicione sua primeira transação usando a barra flutuante
         </p>
       </div>
@@ -152,30 +153,30 @@ export default function TransactionList({ transactions, onChange }: TransactionL
   }
 
   return (
-    <div className="space-y-4 max-h-96 overflow-y-auto">
+    <div className="space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1">
       {transactions.map((transaction, index) => (
         <div
           key={transaction.id}
-          className="bg-card rounded-xl p-4 border border-border theme-transition hover:shadow-md animate-fade-in"
+          className="bg-card rounded-xl p-3 sm:p-4 border border-border theme-transition hover:shadow-md animate-fade-in"
           style={{
             animationDelay: `${index * 100}ms`,
             animation: 'fadeIn 0.5s ease-out forwards',
           }}
         >
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-2">
+              <div className="flex items-center space-x-2 mb-1.5 sm:mb-2">
                 {transaction.type === 'receita' ? (
                   <TrendingUp className="w-4 h-4 text-green-500" />
                 ) : (
                   <TrendingDown className="w-4 h-4 text-red-500" />
                 )}
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-sm sm:text-base font-medium text-foreground">
                   {transaction.description}
                 </span>
               </div>
 
-              <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] sm:text-xs text-muted-foreground">
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-3 h-3" />
                   <span>{formatDate(transaction.date)}</span>
@@ -187,9 +188,9 @@ export default function TransactionList({ transactions, onChange }: TransactionL
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-end sm:items-center justify-between sm:justify-end gap-3">
               <div
-                className={`text-lg font-bold ${
+                className={`text-base sm:text-lg font-bold ${
                   transaction.type === 'receita'
                     ? 'text-green-500'
                     : 'text-red-500'
@@ -199,12 +200,11 @@ export default function TransactionList({ transactions, onChange }: TransactionL
                 {formatAmount(transaction.amount)}
               </div>
 
-              {/* Ações: editar / remover */}
-              <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 sm:flex-col">
                 <button
                   type="button"
                   onClick={() => handleEdit(transaction)}
-                  className="p-1 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition"
+                  className="p-1.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition"
                   title="Editar transação"
                 >
                   <Pencil className="w-4 h-4" />
@@ -212,7 +212,7 @@ export default function TransactionList({ transactions, onChange }: TransactionL
                 <button
                   type="button"
                   onClick={() => handleDelete(transaction.id)}
-                  className="p-1 rounded-full hover:bg-destructive/10 text-destructive transition"
+                  className="p-1.5 rounded-full hover:bg-destructive/10 text-destructive transition"
                   title="Excluir transação"
                 >
                   <Trash2 className="w-4 h-4" />
