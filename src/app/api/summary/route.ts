@@ -1,58 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Também ignoramos userId e calculamos com base em TODAS as transações
-    const transactions = await db.transaction.findMany();
+    const demoEmail = 'demo@gofinance.local';
 
-    let totalReceitas = 0;
-    let totalDespesas = 0;
+    const user = await db.user.findUnique({
+      where: { email: demoEmail },
+    });
+
+    if (!user) {
+      return NextResponse.json({
+        totalReceitas: 0,
+        totalDespesas: 0,
+        saldo: 0,
+        gastosPorCategoria: {},
+        transacoesPorMes: {},
+      });
+    }
+
+    const transactions = await db.transaction.findMany({
+      where: { userId: user.id },
+    });
+
+    const totalReceitas = transactions
+      .filter((t) => t.type === 'receita')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalDespesas = transactions
+      .filter((t) => t.type === 'despesa')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const saldo = totalReceitas - totalDespesas;
+
     const gastosPorCategoria: Record<string, number> = {};
     const transacoesPorMes: Record<string, number> = {};
 
     for (const t of transactions) {
-      const amount = Number(t.amount) || 0;
-      const tipo = t.type?.toLowerCase();
-
-      if (tipo === 'receita') {
-        totalReceitas += amount;
-      } else if (tipo === 'despesa') {
-        totalDespesas += amount;
-
-        const cat = (t.category || 'outros').toLowerCase();
-        gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + amount;
+      if (t.type === 'despesa') {
+        gastosPorCategoria[t.category || 'outros'] =
+          (gastosPorCategoria[t.category || 'outros'] || 0) + t.amount;
       }
 
-      const d = new Date(t.date);
-      if (!Number.isNaN(d.getTime())) {
-        const key = `${d.getFullYear()}-${String(
-          d.getMonth() + 1
-        ).padStart(2, '0')}`;
+      const key = `${t.date.getFullYear()}-${String(
+        t.date.getMonth() + 1,
+      ).padStart(2, '0')}`;
 
-        // aqui estou contando nº de transações por mês;
-        // se depois você quiser somar valores, é só trocar para "+= amount"
-        transacoesPorMes[key] = (transacoesPorMes[key] || 0) + 1;
-      }
+      transacoesPorMes[key] = (transacoesPorMes[key] || 0) + 1;
     }
 
-    const saldo = totalReceitas - totalDespesas;
-
-    return NextResponse.json(
-      {
-        totalReceitas,
-        totalDespesas,
-        saldo,
-        gastosPorCategoria,
-        transacoesPorMes,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      totalReceitas,
+      totalDespesas,
+      saldo,
+      gastosPorCategoria,
+      transacoesPorMes,
+    });
   } catch (error) {
     console.error('Error fetching summary:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch summary' },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }

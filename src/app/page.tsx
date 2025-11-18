@@ -49,8 +49,8 @@ function AppContent() {
       setIsLoading(true);
       
       const [transactionsResponse, summaryResponse] = await Promise.all([
-        fetch('/api/transactions?userId=cmi3fgw6s0000npmogzpebl0y'),
-        fetch('/api/summary?userId=cmi3fgw6s0000npmogzpebl0y')
+        fetch('/api/transactions'),
+        fetch('/api/summary')
       ]);
 
       if (transactionsResponse.ok) {
