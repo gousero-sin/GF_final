@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { Send } from 'lucide-react';
+import Image from 'next/image';
 
 interface SimpleInputBarProps {
-  onTransactionAdd: (transaction: any) => void;
+  onTransactionAdd: (transactions: any[]) => void;
 }
 
 export default function SimpleInputBar({ onTransactionAdd }: SimpleInputBarProps) {
@@ -30,8 +31,10 @@ export default function SimpleInputBar({ onTransactionAdd }: SimpleInputBarProps
         throw new Error('Failed to process transaction');
       }
 
-      const transaction = await response.json();
-      onTransactionAdd(transaction);
+      const transactions = await response.json();
+      // Ensure we always pass an array
+      const transactionsArray = Array.isArray(transactions) ? transactions : [transactions];
+      onTransactionAdd(transactionsArray);
       setText('');
     } catch (error) {
       console.error('Error processing transaction:', error);
@@ -42,13 +45,23 @@ export default function SimpleInputBar({ onTransactionAdd }: SimpleInputBarProps
 
   return (
     <div className="fixed inset-x-0 top-1/2 -translate-y-1/2 z-40 px-4">
-      {/* GO Text */}
-      <div className="text-center mb-6 sm:mb-8">
-        <h1 className="text-5xl sm:text-7xl md:text-8xl font-thin tracking-widest go-neon theme-transition">
-          GO
-        </h1>
+      {/* Logo Image with Glow */}
+      <div className="flex justify-center mb-6 sm:mb-8">
+        <div className="relative group cursor-pointer">
+          {/* Glow effect container */}
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500 opacity-0 group-hover:opacity-100 dark:opacity-20 dark:group-hover:opacity-40" />
+
+          <Image
+            src="/logo.png"
+            alt="GoFinance Logo"
+            width={300}
+            height={300}
+            className="relative z-10 w-48 h-48 sm:w-72 sm:h-72 object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-105"
+            priority
+          />
+        </div>
       </div>
-      
+
       {/* Input bar */}
       <form onSubmit={handleSubmit} className="relative flex justify-center">
         <div className="relative group w-full max-w-xl sm:max-w-2xl">
@@ -78,7 +91,7 @@ export default function SimpleInputBar({ onTransactionAdd }: SimpleInputBarProps
           </button>
         </div>
       </form>
-      
+
       {/* Exemplos rápidos */}
       <div className="flex flex-wrap gap-3 sm:gap-4 justify-center mt-6 sm:mt-10 opacity-70">
         {[

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Transaction } from '@prisma/client';
 import {
   TrendingUp,
@@ -9,7 +10,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import TransactionDetailsModal from './TransactionDetailsModal';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -17,6 +18,8 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ transactions, onChange }: TransactionListProps) {
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -59,7 +62,9 @@ export default function TransactionList({ transactions, onChange }: TransactionL
     }).format(amount);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     const ok = window.confirm('Tem certeza que deseja remover esta transação?');
     if (!ok) return;
 
@@ -79,7 +84,9 @@ export default function TransactionList({ transactions, onChange }: TransactionL
     }
   };
 
-  const handleEdit = async (transaction: Transaction) => {
+  const handleEdit = async (e: React.MouseEvent, transaction: Transaction) => {
+    e.preventDefault();
+    e.stopPropagation();
     const newDescription = window.prompt(
       'Descrição da transação:',
       transaction.description
@@ -153,75 +160,82 @@ export default function TransactionList({ transactions, onChange }: TransactionL
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1">
-      {transactions.map((transaction, index) => (
-        <div
-          key={transaction.id}
-          className="bg-card rounded-xl p-3 sm:p-4 border border-border theme-transition hover:shadow-md animate-fade-in"
-          style={{
-            animationDelay: `${index * 100}ms`,
-            animation: 'fadeIn 0.5s ease-out forwards',
-          }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-1.5 sm:mb-2">
-                {transaction.type === 'receita' ? (
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-red-500" />
-                )}
-                <span className="text-sm sm:text-base font-medium text-foreground">
-                  {transaction.description}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] sm:text-xs text-muted-foreground">
-                <div className="flex items-center space-x-1">
-                  <Calendar className="w-3 h-3" />
-                  <span>{formatDate(transaction.date)}</span>
+    <>
+      <div className="space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1">
+        {transactions.map((transaction, index) => (
+          <div
+            key={transaction.id}
+            onClick={() => setSelectedTransaction(transaction)}
+            className="bg-card rounded-xl p-3 sm:p-4 border border-border theme-transition hover:shadow-md animate-fade-in cursor-pointer hover:bg-accent/10 group"
+            style={{
+              animationDelay: `${index * 100}ms`,
+              animation: 'fadeIn 0.5s ease-out forwards',
+            }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1.5 sm:mb-2">
+                  {transaction.type === 'receita' ? (
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  )}
+                  <span className="text-sm sm:text-base font-medium text-foreground">
+                    {transaction.description}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Tag className="w-3 h-3" />
-                  <span>{transaction.category}</span>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] sm:text-xs text-muted-foreground">
+                  <div className="flex items-center space-x-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>{formatDate(transaction.date)}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Tag className="w-3 h-3" />
+                    <span>{transaction.category}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-end sm:items-center justify-between sm:justify-end gap-3">
-              <div
-                className={`text-base sm:text-lg font-bold ${
-                  transaction.type === 'receita'
-                    ? 'text-green-500'
-                    : 'text-red-500'
-                }`}
-              >
-                {transaction.type === 'receita' ? '+' : '-'}
-                {formatAmount(transaction.amount)}
-              </div>
+              <div className="flex items-end sm:items-center justify-between sm:justify-end gap-3">
+                <div
+                  className={`text-base sm:text-lg font-bold ${transaction.type === 'receita'
+                      ? 'text-green-500'
+                      : 'text-red-500'
+                    }`}
+                >
+                  {transaction.type === 'receita' ? '+' : '-'}
+                  {formatAmount(transaction.amount)}
+                </div>
 
-              <div className="flex items-center gap-2 sm:flex-col">
-                <button
-                  type="button"
-                  onClick={() => handleEdit(transaction)}
-                  className="p-1.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition"
-                  title="Editar transação"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(transaction.id)}
-                  className="p-1.5 rounded-full hover:bg-destructive/10 text-destructive transition"
-                  title="Excluir transação"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => handleEdit(e, transaction)}
+                    className="p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition z-10"
+                    title="Editar transação"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e, transaction.id)}
+                    className="p-2 rounded-full hover:bg-destructive/10 text-destructive transition z-10"
+                    title="Excluir transação"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      <TransactionDetailsModal
+        transaction={selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+      />
+    </>
   );
 }

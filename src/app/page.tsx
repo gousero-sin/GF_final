@@ -7,18 +7,7 @@ import SimpleInputBar from '@/components/SimpleInputBar';
 import PinLogin from '@/components/PinLogin';
 import LoadingScreen from '@/components/LoadingScreen';
 import DashboardView from '@/components/DashboardView';
-
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  type: 'receita' | 'despesa';
-  category: string;
-  date: string;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-}
+import { Transaction } from '@prisma/client';
 
 interface Summary {
   totalReceitas: number;
@@ -47,15 +36,22 @@ function AppContent() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      
+
       const [transactionsResponse, summaryResponse] = await Promise.all([
         fetch('/api/transactions'),
         fetch('/api/summary')
       ]);
 
       if (transactionsResponse.ok) {
-        const transactionsData = await transactionsResponse.json();
-        setTransactions(transactionsData);
+        const data = await transactionsResponse.json();
+        // Convert date strings to Date objects
+        const parsedTransactions = data.map((t: any) => ({
+          ...t,
+          date: new Date(t.date),
+          createdAt: new Date(t.createdAt),
+          updatedAt: new Date(t.updatedAt),
+        }));
+        setTransactions(parsedTransactions);
       }
 
       if (summaryResponse.ok) {
@@ -69,8 +65,16 @@ function AppContent() {
     }
   };
 
-  const handleTransactionAdd = (newTransaction: Transaction) => {
-    setTransactions(prev => [newTransaction, ...prev]);
+  const handleTransactionAdd = (newTransactions: any[]) => {
+    // Convert dates for new transactions
+    const parsedNew = newTransactions.map((t: any) => ({
+      ...t,
+      date: new Date(t.date),
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt),
+    }));
+
+    setTransactions(prev => [...parsedNew, ...prev]);
     fetchData(); // Refresh summary data
   };
 
@@ -97,13 +101,13 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background theme-transition">
       <NavBar currentView={currentView} onViewChange={setCurrentView} />
-      
+
       <main className="pt-20">
         {currentView === 'home' ? (
           <div className="relative min-h-screen">
             {/* Minimalist background with intentional negative space */}
             <div className="absolute inset-0" />
-            
+
             {/* Simple floating input bar with GO text */}
             <SimpleInputBar onTransactionAdd={handleTransactionAdd} />
           </div>

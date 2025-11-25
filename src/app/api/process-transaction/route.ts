@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-type RawAIResponse = {
+type RawTransaction = {
   description?: string;
   amount?: number;
-  type?: string;      // 'despesa' | 'receita'
+  type?: string;
   category?: string;
   date?: string;
+};
+
+type RawAIResponse = {
+  transactions: RawTransaction[];
 };
 
 export async function POST(request: NextRequest) {
@@ -33,12 +37,9 @@ export async function POST(request: NextRequest) {
     let finalUserId: string;
 
     if (userId && typeof userId === 'string') {
-      // Se o front passar userId, usamos ele (assumindo que é válido)
       finalUserId = userId;
     } else {
-      // Usuário "demo" fixo por e-mail
       const demoEmail = 'demo@gofinance.local';
-
       const user = await db.user.upsert({
         where: { email: demoEmail },
         update: {},
@@ -47,32 +48,40 @@ export async function POST(request: NextRequest) {
           name: 'GoFinance Demo User',
         },
       });
-
       finalUserId = user.id;
     }
+
+    // Data atual em UTC-3 (Brasília)
+    const now = new Date();
+    const utc3Date = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const todayStr = utc3Date.toISOString().split('T')[0]; // YYYY-MM-DD
 
     // 2) Chama a DeepSeek para transformar texto em JSON
     const systemPrompt = `
 Você é um assistente de finanças pessoais.
+Hoje é: ${todayStr} (YYYY-MM-DD).
 
-Sua única tarefa é converter o texto do usuário em um objeto JSON **válido** (sem comentários, sem texto extra, sem markdown, sem \`\`\`).
+Sua tarefa é converter o texto do usuário em uma lista de transações JSON **válida**.
+O usuário pode informar uma ou várias transações na mesma frase.
 
-O JSON DEVE TER EXATAMENTE estes campos:
-
+O JSON DEVE TER EXATAMENTE este formato:
 {
-  "description": "string - descrição curta amigável, ex: Gasto no shopping",
-  "amount": 100.5,
-  "type": "despesa" ou "receita",
-  "category": "lazer" | "alimentacao" | "transporte" | "salario" | "contas" | "mercado" | "outros",
-  "date": "YYYY-MM-DD" ou ISO (se o usuário não citar a data, use a data de HOJE"
+  "transactions": [
+    {
+      "description": "string - descrição curta",
+      "amount": 10.5,
+      "type": "despesa" | "receita",
+      "category": "lazer" | "alimentacao" | "transporte" | "salario" | "contas" | "mercado" | "outros",
+      "date": "YYYY-MM-DD" (se o usuário não citar uma data específica, ou se for "hoje", NÃO envie este campo)
+    }
+  ]
 }
 
 Regras:
-- "amount" sempre número positivo (sem sinal negativo).
-- Se o usuário GANHOU/RECEBEU algo -> "type": "receita".
-- Se o usuário GASTOU/PAGOU algo -> "type": "despesa".
-- Se não souber a categoria exata, use "outros".
-- Responda **apenas** com JSON válido.
+- "amount" sempre positivo.
+- Identifique se é receita ou despesa pelo contexto.
+- Se não souber a categoria, use "outros".
+- Responda APENAS o JSON.
 `.trim();
 
     const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
@@ -88,7 +97,7 @@ Regras:
           { role: 'user', content: text },
         ],
         temperature: 0.3,
-        max_tokens: 200,
+        max_tokens: 500,
         response_format: { type: 'json_object' },
       }),
     });
@@ -103,11 +112,9 @@ Regras:
     }
 
     const dsJson: any = await dsResponse.json();
-    const content: string | undefined =
-      dsJson?.choices?.[0]?.message?.content;
+    const content: string | undefined = dsJson?.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error('DeepSeek empty content:', dsJson);
       return NextResponse.json(
         { error: 'Empty response from DeepSeek' },
         { status: 500 }
@@ -118,70 +125,71 @@ Regras:
     try {
       aiData = JSON.parse(content) as RawAIResponse;
     } catch (err) {
-      console.error('Falha ao fazer JSON.parse no retorno da DeepSeek:', content);
+      console.error('Falha ao fazer JSON.parse:', content);
       return NextResponse.json(
         { error: 'Invalid JSON from DeepSeek' },
         { status: 500 }
       );
     }
 
-    // 3) Normalizar dados pra bater com seu schema
+    const transactionsToCreate = (aiData.transactions || []).map((t) => {
+      const description = t.description || text.slice(0, 80);
+      const amount = Number(t.amount);
 
-    const description = aiData.description || text.slice(0, 80);
+      let rawType = (t.type || '').toLowerCase();
+      let finalType: 'receita' | 'despesa' = 'despesa';
 
-    const amount = Number(aiData.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json(
-        { error: 'AI did not return a valid positive amount', debug: aiData },
-        { status: 500 }
-      );
-    }
-
-    let rawType = (aiData.type || '').toLowerCase();
-    let finalType: 'receita' | 'despesa';
-
-    if (rawType === 'receita' || rawType === 'ganho' || rawType === 'entrada') {
-      finalType = 'receita';
-    } else if (
-      rawType === 'despesa' ||
-      rawType === 'gasto' ||
-      rawType === 'saida' ||
-      rawType === 'saída'
-    ) {
-      finalType = 'despesa';
-    } else {
-      const t = text.toLowerCase();
-      if (/receb|ganh|salár|bonus|bônus/.test(t)) {
+      if (rawType === 'receita' || rawType === 'ganho' || rawType === 'entrada') {
         finalType = 'receita';
+      } else if (rawType === 'despesa' || rawType === 'gasto' || rawType === 'saida') {
+        finalType = 'despesa';
       } else {
+        // Fallback simples se a AI falhar no type, mas geralmente ela acerta
         finalType = 'despesa';
       }
-    }
 
-    const category =
-      (aiData.category || 'outros').toString().toLowerCase();
+      const category = (t.category || 'outros').toString().toLowerCase();
 
-    let date: Date;
-    if (aiData.date) {
-      const parsed = new Date(aiData.date);
-      date = isNaN(parsed.getTime()) ? new Date() : parsed;
-    } else {
-      date = new Date();
-    }
+      let date: Date;
+      // Se a data vier preenchida E for diferente de hoje, usamos ela (com hora 12:00)
+      // Se não vier, ou se for igual a hoje, usamos new Date() para pegar o momento atual (com hora correta)
+      if (t.date && t.date !== todayStr) {
+        const parsed = new Date(`${t.date}T12:00:00`);
+        date = isNaN(parsed.getTime()) ? new Date() : parsed;
+      } else {
+        // Data atual (UTC) - O frontend deve converter para o fuso local do usuário ao exibir
+        // Se o requisito for salvar JÁ com o deslocamento de -3h (hack), faríamos:
+        // date = new Date(new Date().getTime() - 3 * 60 * 60 * 1000);
+        // Mas o correto é salvar o timestamp real. Vamos assumir timestamp real.
+        date = new Date();
+      }
 
-    // 4) Salvar no banco com Prisma
-    const transaction = await db.transaction.create({
-      data: {
+      return {
         description,
-        amount,
-        type: finalType,   // String 'receita' | 'despesa'
+        amount: Number.isFinite(amount) ? Math.abs(amount) : 0,
+        type: finalType,
         category,
         date,
         userId: finalUserId,
-      },
+      };
     });
 
-    return NextResponse.json(transaction, { status: 200 });
+    // Filtra inválidos (amount 0)
+    const validTransactions = transactionsToCreate.filter(t => t.amount > 0);
+
+    if (validTransactions.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid transactions found' },
+        { status: 400 }
+      );
+    }
+
+    // Salva tudo em uma transação do banco
+    const createdTransactions = await db.$transaction(
+      validTransactions.map((data) => db.transaction.create({ data }))
+    );
+
+    return NextResponse.json(createdTransactions, { status: 200 });
   } catch (error) {
     console.error('Transaction processing error:', error);
     return NextResponse.json(
